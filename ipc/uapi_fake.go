@@ -1,4 +1,4 @@
-//go:build wasm || plan9 || aix || solaris || illumos
+//go:build wasm || aix || solaris || illumos
 
 /* SPDX-License-Identifier: MIT
  *
@@ -7,7 +7,7 @@
 
 package ipc
 
-// Made up sentinel error codes for {js,wasip1}/wasm, and plan9.
+// Made up sentinel error codes for {js,wasip1}/wasm.
 const (
 	IpcErrorIO        = 1
 	IpcErrorInvalid   = 2
