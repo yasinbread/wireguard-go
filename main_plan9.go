@@ -88,7 +88,7 @@ func main() {
 
 	// open UAPI file (or use supplied fd)
 
-	fileUAPI, err := ipc.UAPIOpen(interfaceName)
+	fileUAPI, err := ipc.UAPIOpen(os.Args[1])
 	if err != nil {
 		logger.Errorf("UAPI listen error: %v", err)
 		os.Exit(ExitSetupFailed)
