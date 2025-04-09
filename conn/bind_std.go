@@ -165,16 +165,20 @@ again:
 		return nil, 0, err
 	}
 
-	// Listen on the same port as we're using for ipv4.
-	v6conn, port, err = listenNet("udp6", port)
-	if uport == 0 && errors.Is(err, errEADDRINUSE) && tries < 100 {
-		v4conn.Close()
-		tries++
-		goto again
-	}
-	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		v4conn.Close()
-		return nil, 0, err
+	if runtime.GOOS == "plan9" {
+		v6conn, port = v4conn, port
+	} else {
+		// Listen on the same port as we're using for ipv4.
+		v6conn, port, err = listenNet("udp6", port)
+		if uport == 0 && errors.Is(err, errEADDRINUSE) && tries < 100 {
+			v4conn.Close()
+			tries++
+			goto again
+		}
+		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			v4conn.Close()
+			return nil, 0, err
+		}
 	}
 	var fns []ReceiveFunc
 	if v4conn != nil {
@@ -260,7 +264,12 @@ func (s *StdNetBind) receiveIP(
 		}
 	} else {
 		msg := &(*msgs)[0]
-		msg.N, msg.NN, _, msg.Addr, err = conn.ReadMsgUDP(msg.Buffers[0], msg.OOB)
+		if runtime.GOOS == "plan9" {
+			msg.N, msg.Addr, err = conn.ReadFrom(msg.Buffers[0])
+			msg.NN = 0
+		} else {
+			msg.N, msg.NN, _, msg.Addr, err = conn.ReadMsgUDP(msg.Buffers[0], msg.OOB)
+		}
 		if err != nil {
 			return 0, err
 		}
@@ -428,7 +437,11 @@ func (s *StdNetBind) send(conn *net.UDPConn, pc batchWriter, msgs []ipv6.Message
 		}
 	} else {
 		for _, msg := range msgs {
-			_, _, err = conn.WriteMsgUDP(msg.Buffers[0], msg.OOB, msg.Addr.(*net.UDPAddr))
+			if runtime.GOOS == "plan9" {
+				_, err = conn.WriteTo(msg.Buffers[0], msg.Addr.(*net.UDPAddr))
+			} else {
+				_, _, err = conn.WriteMsgUDP(msg.Buffers[0], msg.OOB, msg.Addr.(*net.UDPAddr))
+			}
 			if err != nil {
 				break
 			}
