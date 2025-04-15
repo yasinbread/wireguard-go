@@ -160,14 +160,17 @@ again:
 	var v4pc *ipv4.PacketConn
 	var v6pc *ipv6.PacketConn
 
-	v4conn, port, err = listenNet("udp4", port)
-	if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
-		return nil, 0, err
-	}
-
 	if runtime.GOOS == "plan9" {
-		v6conn, port = v4conn, port
+		v6conn, port, err = listenNet("udp", port)
+		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return nil, 0, err
+		}
 	} else {
+		v4conn, port, err = listenNet("udp4", port)
+		if err != nil && !errors.Is(err, syscall.EAFNOSUPPORT) {
+			return nil, 0, err
+		}
+
 		// Listen on the same port as we're using for ipv4.
 		v6conn, port, err = listenNet("udp6", port)
 		if uport == 0 && errors.Is(err, errEADDRINUSE) && tries < 100 {
@@ -180,6 +183,7 @@ again:
 			return nil, 0, err
 		}
 	}
+
 	var fns []ReceiveFunc
 	if v4conn != nil {
 		s.ipv4TxOffload, s.ipv4RxOffload = supportsUDPOffload(v4conn)
@@ -357,7 +361,7 @@ func (s *StdNetBind) Send(bufs [][]byte, endpoint Endpoint) error {
 	offload := s.ipv4TxOffload
 	br := batchWriter(s.ipv4PC)
 	is6 := false
-	if endpoint.DstIP().Is6() {
+	if runtime.GOOS == "plan9" || endpoint.DstIP().Is6() {
 		blackhole = s.blackhole6
 		conn = s.ipv6
 		br = s.ipv6PC
