@@ -102,7 +102,6 @@ func main() {
 
 	logger.Verbosef("Device started")
 
-	errs := make(chan error)
 	term := make(chan os.Signal, 1)
 
 	uapi, err := ipc.UAPIListen(interfaceName, fileUAPI)
@@ -112,15 +111,9 @@ func main() {
 	}
 
 	go func() {
-		for {
-			conn, err := uapi.Accept()
-			if err != nil {
-				errs <- err
-				return
-			}
-
-			device.IpcHandle(conn)
-		}
+		conn, _ := uapi.Accept()
+		device.IpcHandle(conn)
+		term <-os.Interrupt
 	}()
 
 	logger.Verbosef("UAPI listener started")
@@ -132,10 +125,8 @@ func main() {
 
 	select {
 	case <-term:
-	case <-errs:
 	case <-device.Wait():
 	}
-
 	// clean up
 
 	uapi.Close()
